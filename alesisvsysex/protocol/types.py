@@ -1,6 +1,6 @@
 import struct
 
-__all__ = ['AbstractEnumValue', 'IntValue', 'KnobModeEnum', 'ButtonModeEnum', 'PadModeEnum']
+__all__ = ['AbstractEnumValue', 'IntValue', 'KnobModeEnum', 'ButtonModeEnum', 'PadModeEnum', 'SusModeEnum', 'MIDIChannelEnum', 'MIDIChannelOmniEnum', 'Transpose', 'Curve', 'Octave', 'VMiniOctave']
 
 class AbstractEnumValue (object):
 
@@ -44,17 +44,24 @@ class AbstractEnumValue (object):
     
 class IntValue (object):
 
+    _MIN   = 0
+    _MAX   = 127
+    _DELTA = 0
+
     def __init__(self, val):
         if not isinstance(val, int):
             raise ValueError("Invalid type '%s', expected int."
                              % (val.__class__.__name__))
+        if not (self._MIN <= val <= self._MAX):
+            raise ValueError("Invalid value '%s', expected within %s and %s"
+                             % (val, self._MIN, self._MAX))
         self._value = val
 
     def as_int(self):
         return self._value
         
     def serialize(self):
-        return struct.pack('B', self.as_int())
+        return struct.pack('B', self.as_int() + self._DELTA)
         
     @classmethod
     def num_bytes(cls):
@@ -62,7 +69,7 @@ class IntValue (object):
     
     @classmethod
     def deserialize(cls, b):
-        return cls(int(b[0]))
+        return cls(int(b[0]) - cls._DELTA)
 
 class KnobModeEnum (AbstractEnumValue):
 
@@ -86,3 +93,72 @@ class ButtonModeEnum (AbstractEnumValue):
         'Momentary CC': 0x01
     }
 
+class SusModeEnum (AbstractEnumValue):
+    
+    _VALUES = {
+        'Switch':         0x00,
+        'Momentary':    0x01
+    }
+
+class MIDIChannelEnum (AbstractEnumValue):
+
+    _VALUES = {
+        'Channel 1':  0x00,
+        'Channel 2':  0x01,
+        'Channel 3':  0x02,
+        'Channel 4':  0x03,
+        'Channel 5':  0x04,
+        'Channel 6':  0x05,
+        'Channel 7':  0x06,
+        'Channel 8':  0x07,
+        'Channel 9':  0x08,
+        'Channel 10': 0x09,
+        'Channel 11': 0x0a,
+        'Channel 12': 0x0b,
+        'Channel 13': 0x0c,
+        'Channel 14': 0x0d,
+        'Channel 15': 0x0e,
+        'Channel 16': 0x0f
+    }
+
+class MIDIChannelOmniEnum (AbstractEnumValue):
+
+    _VALUES = {
+        'Channel 1':  0x00,
+        'Channel 2':  0x01,
+        'Channel 3':  0x02,
+        'Channel 4':  0x03,
+        'Channel 5':  0x04,
+        'Channel 6':  0x05,
+        'Channel 7':  0x06,
+        'Channel 8':  0x07,
+        'Channel 9':  0x08,
+        'Channel 10': 0x09,
+        'Channel 11': 0x0a,
+        'Channel 12': 0x0b,
+        'Channel 13': 0x0c,
+        'Channel 14': 0x0d,
+        'Channel 15': 0x0e,
+        'Channel 16': 0x0f,
+        'Omni':       0x10
+    }
+
+class Transpose(IntValue):
+
+    _MIN   = -12
+    _MAX   = 12
+    _DELTA = 12
+
+class Curve(IntValue):
+    _MIN   = 1
+    _MAX   = 8
+    _DELTA = -1
+
+class Octave(IntValue):
+    _MIN = 0
+    _MAX = 9
+
+class VMiniOctave(IntValue):
+    _MIN = -5
+    _MAX = 5
+    _DELTA = 5

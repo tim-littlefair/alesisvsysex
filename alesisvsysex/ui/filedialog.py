@@ -5,7 +5,7 @@ __all__ = ["launchSaveFileDialog", "launchLoadFileDialog"]
 FILE_TYPES = "SysEx Files (*.syx);;All Files (*)"
 DEFAULT_EXT = ".syx"
 
-def launchSaveFileDialog(parent):
+def launchSaveFileDialog(parent, delegate):
 
     options = QFileDialog.Options()
     options |= QFileDialog.DontUseNativeDialog
@@ -16,10 +16,10 @@ def launchSaveFileDialog(parent):
     dialog.setDefaultSuffix(DEFAULT_EXT)
     dialog.setFileMode(QFileDialog.AnyFile)
     dialog.setAcceptMode(QFileDialog.AcceptSave)
-    dialog.fileSelected.connect(parent.saveFileCallback)
-    dialog.open()
+    if dialog.exec():
+        delegate.saveFileCallback(dialog.selectedFiles()[0])
     
-def launchLoadFileDialog(parent):
+def launchLoadFileDialog(parent, delegate):
 
     options = QFileDialog.Options()
     options |= QFileDialog.DontUseNativeDialog
@@ -30,6 +30,6 @@ def launchLoadFileDialog(parent):
     dialog.setDefaultSuffix(DEFAULT_EXT)
     dialog.setFileMode(QFileDialog.ExistingFile)
     dialog.setAcceptMode(QFileDialog.AcceptOpen)
-    dialog.fileSelected.connect(parent.loadFileCallback)
-    dialog.open()
+    if dialog.exec():
+        delegate.loadFileCallback(dialog.selectedFiles()[0])
 

@@ -1,160 +1,182 @@
 from PyQt5.QtWidgets import *
-from alesisvsysex.protocol.model import AlesisV
-from alesisvsysex.device.alesis import AlesisV25Device
+from PyQt5.QtCore import QPoint
+from alesisvsysex.device.alesis import AlesisMIDIDevice
 from alesisvsysex.device.file import FileDevice
 from alesisvsysex.ui.components import *
 from alesisvsysex.ui.filedialog import *
 
 __all__ = ['AlesisVSysexApplication']
 
-class ActionMenuWidget (QWidget):
+all_windows = set()
 
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.initLayout()
-    
-    def initLayout(self):
-        layout = QHBoxLayout()
-        
-        bsavef = QPushButton('Save To File', self)
-        bsavef.clicked.connect(self.propagateCommand('saveFile'))
-        layout.addWidget(bsavef)
-        
-        bloadf = QPushButton('Load From File', self)
-        bloadf.clicked.connect(self.propagateCommand('loadFile'))
-        layout.addWidget(bloadf)
-        
-        bsaved = QPushButton('Save To Device', self)
-        bsaved.clicked.connect(self.propagateCommand('saveDevice'))
-        layout.addWidget(bsaved)
-        
-        bloadd = QPushButton('Load From Device', self)
-        bloadd.clicked.connect(self.propagateCommand('loadDevice'))
-        layout.addWidget(bloadd)
-        
-        self.setLayout(layout)
-        self.setFixedHeight(50)
-    
-    def propagateCommand(self, command):
-        def closure():
-            getattr(self.parent().parent(), command)()
-        return closure
+def preserveWindow(window):
+    all_windows.add(window)
 
-class ContainerWidget (QWidget):
+def unpreserveWindow(window):
+    all_windows.remove(window)
 
-    def __init__(self):
+class DisappointingMainWindow (QMainWindow):
+    # In order to create a second main window object that survives
+    # long enough to interact with we have to prevent the GC from
+    # deleting it.  That's easily enough handled.  In order to prevent
+    # memory leaks we need to allow the GC to delete the window once
+    # it is closed.  There is no signal for window-close, so we must
+    # implement a closeEvent() method in order to catch the close
+    # event.  Which requires subclassing QMainWindow().  Which we
+    # wouldn't need to do, were it not for the GC being obnoxious and
+    # the lack of a suitable existing signal to connect.  I am...
+    # disappointed.
+
+    # Another angle would be to create a QObject subclass with an
+    # eventFilter() method and install it as an event filter on the
+    # main window.  This still requires subclassing a Qt class, and
+    # then doing the event-type dispatch "by hand".  Also
+    # disappointing.
+
+    def __init__(self, controller):
         super().__init__()
-        
-    def getModel(self):
-        p = self.parent()
-        while not isinstance(p, EditorWidget):
-            p = p.parent()
-        return p.getModel()
+        preserveWindow(controller)
+        self._controller = controller
 
-class EditorWidget (QTabWidget):
+    def closeEvent(self, event):
+        unpreserveWindow(self._controller)
+        self._controller = None
+        event.accept()
 
-    def __init__(self, parent):
-        super().__init__(parent)
+class EditorWidget:
+
+    def __init__(self, model):
         self.children = []
+        self.model = model
+        self._widget = QTabWidget()
         self.initLayout()
         
-    def addChild(self, parent, widget):
-        parent.addWidget(widget)
-        self.children.append(widget)
+    def addChild(self, parent, child):
+        parent.addWidget(child.widget())
+        self.children.append(child)
         
     def initLayout(self):
-    
-        pane1l = QHBoxLayout()
-        self.addChild(pane1l, BasicWidget(self, "Keys", 'keys'))
-        self.addChild(pane1l, BasicWidget(self, "Pitch Wheel", 'pwheel'))
-        self.addChild(pane1l, BasicWidget(self, "Mod Wheel", 'mwheel'))
-        self.addChild(pane1l, BasicWidget(self, "Sustain", 'sustain'))
-        
-        pane1 = ContainerWidget()
-        pane1.setLayout(pane1l)
-        
-        pane2l = QVBoxLayout()
-        self.addChild(pane2l, CompoundWidget(self, "Knobs", 'knobs'))
-        self.addChild(pane2l, CompoundWidget(self, "Buttons", 'buttons'))
-        
-        pane2 = ContainerWidget()
-        pane2.setLayout(pane2l)
-        
-        pane3l = QVBoxLayout()
-        self.addChild(pane3l,CompoundWidget(self, "Pads", 'pads'))
-        
-        pane3 = ContainerWidget()
-        pane3.setLayout(pane3l)
-        
-        self.addTab(pane1, "Keys / Wheels / Sustain")
-        self.addTab(pane2, "Knobs / Buttons")
-        self.addTab(pane3, "Pads")
+        for (group_title, style, elements) in self.model._GROUPS:
+            if style == 'horizontal':
+                uiclass = BasicWidget
+                layout = QHBoxLayout()
+            else:
+                uiclass = CompoundWidget
+                layout = QVBoxLayout()
 
-    def getModel(self):
-        return self.parentWidget().parentWidget().model
-        
-    def updateState(self):
-        for c in self.children:
-            c.updateState()
+            for (name, key) in elements:
+                self.addChild(layout, uiclass(self.model, name, key))
 
-class MainWidget (QWidget):
-    
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.initLayout()
-    
-    def initLayout(self):
+            pane = QWidget()
+            pane.setLayout(layout)
+            self._widget.addTab(pane, group_title)
+
+    def widget(self):
+        return self._widget
+
+class AlesisVSysexApplication:
+
+    def __init__(self, model):
+        self.model = model
+        self.initMainWindow()
+
+    def createActionMenu(self):
+        actionMenu = QWidget(self.mainWidget)
+        layout = QHBoxLayout()
+
+        bsavef = QPushButton('Save To File', actionMenu)
+        bsavef.clicked.connect(self.saveFile)
+        layout.addWidget(bsavef)
+
+        bloadf = QPushButton('Load From File', actionMenu)
+        bloadf.clicked.connect(self.loadFile)
+        layout.addWidget(bloadf)
+
+        bsaved = QPushButton('Save To Device', actionMenu)
+        bsaved.clicked.connect(self.saveDevice)
+        layout.addWidget(bsaved)
+
+        bloadd = QPushButton('Load From Device', actionMenu)
+        bloadd.clicked.connect(self.loadDevice)
+        layout.addWidget(bloadd)
+
+        actionMenu.setLayout(layout)
+        actionMenu.setFixedHeight(50)
+
+        return actionMenu
+
+    def initMainWidget(self):
+        self.mainWidget = QWidget(self.mainWindow)
         layout = QVBoxLayout()
-        self.actionWidget = ActionMenuWidget(self)
-        layout.addWidget(self.actionWidget)
-        self.editorWidget = EditorWidget(self)
-        layout.addWidget(self.editorWidget)
-        self.setLayout(layout)
-    
-    def updateState(self):
-        self.editorWidget.updateState()
+        layout.addWidget(self.createActionMenu())
+        self.editorWidget = EditorWidget(self.model)
+        layout.addWidget(self.editorWidget.widget())
+        self.mainWidget.setLayout(layout)
 
-class AlesisVSysexApplication (QMainWindow):
+    def initMainWindow(self):
+        self.mainWindow = DisappointingMainWindow(self)
+        self.statusBar = self.mainWindow.statusBar()
+        self.mainWindow.setWindowTitle('Alesis V-Series SysEx Editor')
+        self.initMainWidget()
+        self.mainWindow.setCentralWidget(self.mainWidget)
+        self.showStatusMessage('Ready.')
+        self.mainWindow.show()
 
-    def __init__(self):
-        super().__init__()
-        self.model = AlesisV()
-        self.device = AlesisV25Device()
-        self.initWindow()
+    def positionRelativeTo(self, parentWindow):
+        parentPosition = parentWindow.pos()
+        frameHeight = parentWindow.geometry().top() - parentPosition.y()
+        if frameHeight == 0:
+            frameHeight = 40
+        targetPosition = parentPosition + 2 * QPoint(frameHeight, frameHeight)
+        targetBottomRight = self.mainWindow.rect().bottomRight() + targetPosition
+        if QApplication.desktop().availableGeometry(self.mainWindow).contains(targetBottomRight):
+            self.mainWindow.move(targetPosition)
 
-    def initWindow(self):
-        self.setWindowTitle('Alesis V-Series SysEx Editor')
-        self.initWidget()
-        self.statusBar().showMessage('Ready.')
-        self.show()
-        
-    def initWidget(self):
-        self.widget = MainWidget(self)
-        self.setCentralWidget(self.widget)
-        
+    def showStatusMessage(self, message):
+        self.statusBar.showMessage(message)
+
     def saveFile(self):
-        launchSaveFileDialog(self)
+        launchSaveFileDialog(self.mainWindow, self)
     
     def saveFileCallback(self, name):
         f = FileDevice(name)
         f.set_config(self.model)
-        self.statusBar().showMessage("Saved configuration to '%s'." % name)
+        self.showStatusMessage("Saved configuration to '%s'." % name)
     
     def loadFile(self):
-        launchLoadFileDialog(self)
+        launchLoadFileDialog(self.mainWindow, self)
         
     def loadFileCallback(self, name):
         f = FileDevice(name)
-        self.model = f.get_config()
-        self.widget.updateState()
-        self.statusBar().showMessage("Loaded configuration from '%s'." % name)
-    
+        window = self.__class__(f.get_config())
+        window.positionRelativeTo(self.mainWindow)
+        window.showStatusMessage("Loaded configuration from '%s'." % name)
+
+    def findMIDIDevice(self, any_model):
+        if any_model:
+            ports = AlesisMIDIDevice.findAllPorts()
+        else:
+            ports = AlesisMIDIDevice.findPortsForModel(self.model)
+        if len(ports) == 0:
+            raise RuntimeError("Could not find a compatible MIDI device")
+        elif len(ports) > 1:
+            raise RuntimeError("Multiple compatible MIDI devices found")
+        return AlesisMIDIDevice(ports[0][0], ports[0][1])
+
     def saveDevice(self):
-        self.device.set_config(self.model)
-        self.statusBar().showMessage("Saved configuration to MIDI device.")
+        device = self.findMIDIDevice(False)
+        if self.model._SLOT_CONFIG:
+            device.set_slot_config(0, self.model)
+        else:
+            device.set_config(self.model)
+        self.showStatusMessage("Saved configuration to MIDI device.")
     
     def loadDevice(self):
-        self.model = self.device.get_config()
-        self.widget.updateState()
-        self.statusBar().showMessage("Loaded configuration from MIDI device.")
-
+        device = self.findMIDIDevice(True)
+        if device.modelClass._SLOT_CONFIG:
+            model = device.get_slot_config(0)
+        else:
+            model = device.get_config()
+        window = self.__class__(model)
+        window.positionRelativeTo(self.mainWindow)
+        window.showStatusMessage("Loaded configuration from MIDI device.")
