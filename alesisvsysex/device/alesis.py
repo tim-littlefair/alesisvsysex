@@ -1,9 +1,9 @@
 import mido
 from alesisvsysex.protocol.sysex import SysexMessage
 
-__all__ = ['AlesisV25Device']
+__all__ = ['AlesisDevice']
 
-class AlesisV25Device (object):
+class AlesisDevice (object):
     
     _PORT_PREFIX = "V61:V61 EDITOR"
     

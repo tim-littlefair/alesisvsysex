@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import *
 from alesisvsysex.protocol.model import AlesisV
-from alesisvsysex.device.alesis import AlesisV25Device
+from alesisvsysex.device.alesis import AlesisDevice
 from alesisvsysex.device.file import FileDevice
 from alesisvsysex.ui.components import *
 from alesisvsysex.ui.filedialog import *
@@ -119,7 +119,7 @@ class AlesisVSysexApplication (QMainWindow):
     def __init__(self):
         super().__init__()
         self.model = AlesisV()
-        self.device = AlesisV25Device()
+        self.device = AlesisDevice()
         self.initWindow()
 
     def initWindow(self):
