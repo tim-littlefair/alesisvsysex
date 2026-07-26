@@ -8,12 +8,13 @@ class AlesisV25Device (object):
     _PORT_PREFIX = "V61:V61 EDITOR"
     
     def __init__(self):
-        for port in mido.get_ioport_names():
-            if port.startswith(self._PORT_PREFIX):
-                self._port = mido.open_ioport(port)
+        for ioport_name in mido.get_ioport_names():
+            if ioport_name.startswith(self._PORT_PREFIX):
+                self.ioport_name = ioport_name
+                self._port = mido.open_ioport(self.ioport_name)
                 break
         else:
-            raise RuntimeError("Could not find a port named '%s'" % self._PORT_PREFIX)
+            raise RuntimeError("Could not find a port with prefix '%s'" % self._PORT_PREFIX)
     
     def __del__(self):
         try:

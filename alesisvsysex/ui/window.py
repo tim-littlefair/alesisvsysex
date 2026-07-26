@@ -156,5 +156,5 @@ class AlesisVSysexApplication (QMainWindow):
     def loadDevice(self):
         self.model = self.device.get_config()
         self.widget.updateState()
-        self.statusBar().showMessage("Loaded configuration from MIDI device.")
+        self.statusBar().showMessage(f"Loaded configuration from MIDI port {self.device.ioport_name}.")
 
