@@ -28,7 +28,7 @@ class AlesisDevice (object):
                     _PRODUCT_PREFIXES_AND_IDS[product_prefix]
                 )
         # If we get here, no supported port names were found
-        target_prefix_list = ",".join(_PRODUCT_PREFIXES_AND_IDS.keys)
+        target_prefix_list = "','".join(_PRODUCT_PREFIXES_AND_IDS.keys())
         raise RuntimeError("Could not find a port with prefix in '%s'" % target_prefix_list)
 
     def __init__(self, ioport_name, product_id):
