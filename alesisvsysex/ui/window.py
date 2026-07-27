@@ -119,7 +119,7 @@ class AlesisVSysexApplication (QMainWindow):
     def __init__(self):
         super().__init__()
         self.model = AlesisV()
-        self.device = AlesisDevice()
+        self.device = AlesisDevice.device_factory()
         self.initWindow()
 
     def initWindow(self):
