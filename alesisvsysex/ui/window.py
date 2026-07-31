@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import *
 from alesisvsysex.protocol.model import AlesisV
-from alesisvsysex.device.alesis import AlesisV25Device
+from alesisvsysex.device.alesis import AlesisDevice
 from alesisvsysex.device.file import FileDevice
 from alesisvsysex.ui.components import *
 from alesisvsysex.ui.filedialog import *
@@ -119,7 +119,7 @@ class AlesisVSysexApplication (QMainWindow):
     def __init__(self):
         super().__init__()
         self.model = AlesisV()
-        self.device = AlesisV25Device()
+        self.device = AlesisDevice.device_factory()
         self.initWindow()
 
     def initWindow(self):
@@ -156,5 +156,5 @@ class AlesisVSysexApplication (QMainWindow):
     def loadDevice(self):
         self.model = self.device.get_config()
         self.widget.updateState()
-        self.statusBar().showMessage("Loaded configuration from MIDI device.")
+        self.statusBar().showMessage(f"Loaded configuration from MIDI port {self.device.ioport_name}.")
 
