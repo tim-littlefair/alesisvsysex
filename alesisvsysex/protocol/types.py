@@ -74,15 +74,17 @@ class KnobModeEnum (AbstractEnumValue):
 class PadModeEnum (AbstractEnumValue):
     
     _VALUES = {
-        'Note':         0x00,
-        'Toggle CC':    0x01,
-        'Momentary CC': 0x02
+        'Note':           0x00,
+        'Toggle CC':      0x01,
+        'Momentary CC':   0x02,
+        'Program Change': 0x03
     }
     
 class ButtonModeEnum (AbstractEnumValue):
 
     _VALUES = {
-        'Toggle CC':    0x00,
-        'Momentary CC': 0x01
+        'Toggle CC':      0x00,
+        'Momentary CC':   0x01,
+        'Program Change': 0x02
     }
 

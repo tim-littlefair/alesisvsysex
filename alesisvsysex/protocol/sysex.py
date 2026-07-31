@@ -10,22 +10,26 @@ class SysexMessage (object):
         'reply':  [0x63]
     }
     
-    _HEADER_START = [0x00, 0x00, 0x0e, 0x00, 0x41]
+    # 0xff at last byte of _HEADER_START is a placeholder for the product id
+    _HEADER_START = [0x00, 0x00, 0x0e, 0x00, 0xff] 
     _HEADER_END   = [0x00, 0x5d]
     
     _START_BYTE = [0xf0]
     _END_BYTE   = [0xf7]
     
-    def __init__(self, msg_type, model=None):
-        self.type  = msg_type
-        self.model = model
+    def __init__(self, msg_type, product_id, model=None):
+        self.type       = msg_type
+        self.product_id = product_id
+        self.model      = model
     
     def serialize(self):
+        product_header_start = self._HEADER_START
+        product_header_start[4] = self.product_id
         if self.type == 'query':
-            return bytes(self._START_BYTE + self._HEADER_START + self._TYPES[self.type]
+            return bytes(self._START_BYTE + product_header_start + self._TYPES[self.type]
                          + self._HEADER_END + self._END_BYTE)
         else:
-            return bytes(self._START_BYTE + self._HEADER_START + self._TYPES[self.type]
+            return bytes(self._START_BYTE + product_header_start + self._TYPES[self.type]
                          + self._HEADER_END) + self.model.serialize() + bytes(self._END_BYTE)
                      
         
@@ -41,6 +45,7 @@ class SysexMessage (object):
         header_start = b[i : i + len(cls._HEADER_START)]
         if header_start != bytes(cls._HEADER_START):
             raise ValueError("Invalid message header")
+        product_id = header_start[4]
         i += len(cls._HEADER_START)
         
         t = b[i : i + 1]
@@ -68,7 +73,7 @@ class SysexMessage (object):
             raise ValueError("Invalid end byte '0x%02x'" % end_byte[0])
         i += 1
         
-        return SysexMessage(msg_type, model)
+        return SysexMessage(msg_type, product_id, model)
     
     @classmethod
     def num_bytes(cls, msg_type):
