@@ -13,8 +13,9 @@ class BasicWidget (QGroupBox):
         self.initLayout()
     
     def initLayout(self):
+        if self.componentKey is None:
+           return
         layout = QFormLayout()
-        
         for field, cls, _ in self.getModel()._PARAMS:
             fieldName = QLabel(field)
             if issubclass(cls, IntValue):

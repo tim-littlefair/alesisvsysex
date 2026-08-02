@@ -9,27 +9,28 @@ __all__ = ['AlesisVSysexApplication']
 
 class ActionMenuWidget (QWidget):
 
-    def __init__(self, parent):
+    def __init__(self, parent, application):
         super().__init__(parent)
+        self.application = application
         self.initLayout()
     
     def initLayout(self):
         layout = QHBoxLayout()
         
         bsavef = QPushButton('Save To File', self)
-        bsavef.clicked.connect(self.propagateCommand('saveFile'))
+        bsavef.clicked.connect(self.application.saveFile)
         layout.addWidget(bsavef)
         
         bloadf = QPushButton('Load From File', self)
-        bloadf.clicked.connect(self.propagateCommand('loadFile'))
+        bloadf.clicked.connect(self.application.loadFile)
         layout.addWidget(bloadf)
         
         bsaved = QPushButton('Save To Device', self)
-        bsaved.clicked.connect(self.propagateCommand('saveDevice'))
+        bsaved.clicked.connect(self.application.saveDevice)
         layout.addWidget(bsaved)
         
         bloadd = QPushButton('Load From Device', self)
-        bloadd.clicked.connect(self.propagateCommand('loadDevice'))
+        bloadd.clicked.connect(self.application.loadDevice)
         layout.addWidget(bloadd)
         
         self.setLayout(layout)
@@ -37,7 +38,7 @@ class ActionMenuWidget (QWidget):
     
     def propagateCommand(self, command):
         def closure():
-            getattr(self.parent().parent(), command)()
+            getattr(self.parent().parent().parent(), command)()
         return closure
 
 class ContainerWidget (QWidget):
@@ -53,17 +54,30 @@ class ContainerWidget (QWidget):
 
 class EditorWidget (QTabWidget):
 
-    def __init__(self, parent):
+    def __init__(self, parent, application):
         super().__init__(parent)
+        self.application = application
         self.children = []
         self.initLayout()
         
     def addChild(self, parent, widget):
         parent.addWidget(widget)
         self.children.append(widget)
-        
+
     def initLayout(self):
-    
+        pane0l = QVBoxLayout()
+        self.addChild(pane0l, BasicWidget(self, "Devices", None))
+        self.addChild(pane0l, BasicWidget(self, "Files", None))
+        pane0 = ContainerWidget()
+        self.actionWidget = ActionMenuWidget(self, self.application)
+        pane0l.addWidget(self.actionWidget)
+        pane0.setLayout(pane0l)
+        self.addTab(pane0, "Sources")
+        
+    def updateLayout(self):
+        for tabIndex in range(len(self.children),0,-1):
+            self.removeTab(tabIndex)
+        self.children = []
         pane1l = QHBoxLayout()
         self.addChild(pane1l, BasicWidget(self, "Keys", 'keys'))
         self.addChild(pane1l, BasicWidget(self, "Pitch Wheel", 'pwheel'))
@@ -101,13 +115,12 @@ class MainWidget (QWidget):
     
     def __init__(self, parent):
         super().__init__(parent)
+        self.application = parent
         self.initLayout()
     
     def initLayout(self):
         layout = QVBoxLayout()
-        self.actionWidget = ActionMenuWidget(self)
-        layout.addWidget(self.actionWidget)
-        self.editorWidget = EditorWidget(self)
+        self.editorWidget = EditorWidget(self, self.application)
         layout.addWidget(self.editorWidget)
         self.setLayout(layout)
     
@@ -118,8 +131,8 @@ class AlesisVSysexApplication (QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.model = AlesisV()
-        self.device = AlesisDevice.device_factory()
+        #self.device = None # AlesisDevice.device_factory()
+        self.model = None # AlesisV()
         self.initWindow()
 
     def initWindow(self):
@@ -138,7 +151,7 @@ class AlesisVSysexApplication (QMainWindow):
     def saveFileCallback(self, name):
         f = FileDevice(name)
         f.set_config(self.model)
-        self.statusBar().showMessage("Saved configuration to '%s'." % name)
+        self.statusBar().showMessage("Saved configuration to file '%s'." % name)
     
     def loadFile(self):
         launchLoadFileDialog(self)
@@ -147,14 +160,16 @@ class AlesisVSysexApplication (QMainWindow):
         f = FileDevice(name)
         self.model = f.get_config()
         self.widget.updateState()
-        self.statusBar().showMessage("Loaded configuration from '%s'." % name)
+        self.statusBar().showMessage("Loaded configuration from file '%s'." % name)
     
     def saveDevice(self):
         self.device.set_config(self.model)
         self.statusBar().showMessage("Saved configuration to MIDI device.")
     
     def loadDevice(self):
-        self.model = self.device.get_config()
+        device = AlesisDevice.device_factory()
+        self.model = device.get_config()
+        self.widget.editorWidget.updateLayout()
         self.widget.updateState()
-        self.statusBar().showMessage(f"Loaded configuration from MIDI port {self.device.ioport_name}.")
+        self.statusBar().showMessage(f"Loaded configuration from MIDI port {device.ioport_name}.")
 
